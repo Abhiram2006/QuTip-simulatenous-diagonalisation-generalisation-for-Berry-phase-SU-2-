@@ -1,9 +1,14 @@
-__all__ = ['simdiag']
-
-import numpy as np
 import scipy.linalg as la
 from qutip.qobj import Qobj
 
+def orthogonalize(vecs,tol=1e-3):
+    for j in range(1, vecs.shape[1]):
+        for k in range(j):
+            dot = vecs[:, j].dot(vecs[:, k].conj())
+            if np.abs(dot) > tol:
+                vecs[:, j] = ((vecs[:, j] - dot * vecs[:, k])
+                              / (1 - np.abs(dot)**2)**0.5)
+    return vecs
 
 def _degen(tol, vecs, ops, i=0):
     """
@@ -29,6 +34,14 @@ def _degen(tol, vecs, ops, i=0):
     vecs_new = vecs @ eigvecs[:, perm]
     for k in range(len(eigvals)):
         vecs_new[:, k] = vecs_new[:, k] / la.norm(vecs_new[:, k])
+        
+        
+        ''''
+        EDITS MADE, normalize largest component to be real
+        ''''
+        
+        maxval = vecs_new[np.argmax(np.abs(vecs_new[:, k])),k]
+        vecs_new[:, k] = vecs_new[:, k] / maxval*np.abs(maxval)
 
     k = 0
     while k < len(eigvals):
@@ -40,7 +53,7 @@ def _degen(tol, vecs, ops, i=0):
     return vecs_new
 
 
-def simdiag(ops, evals: bool = True, *,
+def my_simdiag(ops, evals: bool = True, *,
             tol: float = 1e-14, safe_mode: bool = True):
     """Simultaneous diagonalization of commuting Hermitian matrices.
 
@@ -60,7 +73,7 @@ def simdiag(ops, evals: bool = True, *,
     safe_mode : bool [True]
         Whether to check that all ops are Hermitian and commuting. If set to
         ``False`` and operators are not commuting, the eigenvectors returned
-        will often be eigenvectors of only the first operator.
+        will often be eigenvectors of on`ly the first operator.
 
     Returns
     --------
@@ -88,7 +101,7 @@ def simdiag(ops, evals: bool = True, *,
             if (A * B - B * A).norm() / (A * B).norm() > tol:
                 raise TypeError('Matricies must commute.')
 
-    eigvals, eigvecs = la.eigh(ops[0].full())
+    eigvals, eigvecs = la.eig(ops[0].full())
     perm = np.argsort(eigvals)
     eigvecs = eigvecs[:, perm]
     eigvals = eigvals[perm]
